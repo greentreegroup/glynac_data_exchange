@@ -38,8 +38,7 @@ print("Script execution started...")
 
 # Step 1: Load the dataset
 script_dir = Path(__file__).parent
-#file_path = r"C:\Users\gundl\Downloads\MainData.csv"  # File that contains employee pay data
-file_path = script_dir / "MainData.csv"
+file_path = script_dir / "MainData.csv" # File that contains employee pay data
 print("Loading dataset...")
 try:
     df = pd.read_csv(file_path)  # Read the file into a pandas DataFrame
