@@ -30,13 +30,16 @@ import pandas as pd
 from scipy.stats import zscore, norm
 import os
 import time
-
+from pathlib import Path
+from xlsxwriter import Workbook
 # Start execution timer to measure script performance
 start_time = time.time()
 print("Script execution started...")
 
 # Step 1: Load the dataset
-file_path = r"C:\Users\gundl\Downloads\MainData.csv"  # File that contains employee pay data
+script_dir = Path(__file__).parent
+#file_path = r"C:\Users\gundl\Downloads\MainData.csv"  # File that contains employee pay data
+file_path = script_dir / "MainData.csv"
 print("Loading dataset...")
 try:
     df = pd.read_csv(file_path)  # Read the file into a pandas DataFrame
