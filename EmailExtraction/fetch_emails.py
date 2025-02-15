@@ -1,6 +1,7 @@
 import requests
 from auth_token import get_access_token
 import config
+from bs4 import BeautifulSoup
 
 # Specify the email fetch emails from
 USER_EMAIL = config.USER_EMAIL
@@ -20,6 +21,10 @@ def fetch_outlook_emails():
     else:
         print("Error fetching emails:", response.text)
         return []
+    
+def html_to_text(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    return soup.get_text()
 
 # Test fetching emails
 if __name__ == "__main__":
@@ -36,4 +41,4 @@ if __name__ == "__main__":
         print(f"Conversation ID: {email['conversationId']}")
         print(f"Reply-To: {reply_to}\n")
         print(f"Subject: {email['subject']}")
-        print(f"Body: {email['body']['content']}\n")
+        print(f"Body: {html_to_text(email['body']['content'])}\n")

@@ -1,4 +1,5 @@
 import config
+from fetch_emails import html_to_text
 
 
 def store_emails(emails):
@@ -14,7 +15,7 @@ def store_emails(emails):
             "recipient": to_recipients,
             "reply_to": reply_to if reply_to else None,
             "subject": email["subject"],
-            "full_body": email["body"]["content"],
+            "body": html_to_text(email['body']['content']),
             "received_at": email["receivedDateTime"],
             "sent_at": email["sentDateTime"]
         }
