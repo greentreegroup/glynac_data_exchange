@@ -3,7 +3,7 @@ from flask_cors import CORS
 import pandas as pd
 
 app = Flask(__name__)
-CORS(app)  # 允许跨域请求
+CORS(app)  # allow cross domain communication
 
 @app.route('/')
 def home():
