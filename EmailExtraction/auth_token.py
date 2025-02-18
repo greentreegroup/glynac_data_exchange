@@ -1,21 +1,20 @@
-import msal
+import requests
 import config
-
 def get_access_token():
-    app = msal.ConfidentialClientApplication(
-        client_id=config.OUTLOOK_CLIENT_ID,
-        client_credential=config.OUTLOOK_CLIENT_SECRET,
-        authority=f"https://login.microsoftonline.com/{config.OUTLOOK_TENANT_ID}"
-    )
+    """Fetches a new access token for Microsoft Graph API (Teams & Email)."""
+    url = f"https://login.microsoftonline.com/{config.OUTLOOK_TENANT_ID}/oauth2/v2.0/token"
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": config.OUTLOOK_CLIENT_ID,
+        "client_secret": config.OUTLOOK_CLIENT_SECRET,
+        "scope": "https://graph.microsoft.com/.default"
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    token_response = app.acquire_token_for_client(scopes=config.SCOPES)
+    response = requests.post(url, data=data, headers=headers)
+    response.raise_for_status()
+    return response.json().get("access_token")
 
-    if "access_token" in token_response:
-        return token_response["access_token"]
-    else:
-        raise Exception(f"Could not get access token: {token_response}")
-
-# Test authentication
 if __name__ == "__main__":
     print("Fetching access token...")
     access_token = get_access_token()
