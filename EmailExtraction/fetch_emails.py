@@ -7,21 +7,30 @@ from bs4 import BeautifulSoup
 USER_EMAIL = config.USER_EMAIL
 
 def fetch_outlook_emails():
+    """Fetch emails from Outlook using Microsoft Graph API."""
     access_token = get_access_token()
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    # API endpoint
-    messages_url = config.GRAPH_API_MESSAGES_ENDPOINT.format(user_id=USER_EMAIL)
-
-    response = requests.get(messages_url, headers=headers)
-
-    if response.status_code == 200:
-        emails = response.json().get("value", [])
-        return emails
-    else:
-        print("Error fetching emails:", response.text)
-        return []
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
     
+    # API endpoint for fetching emails
+    messages_url = config.GRAPH_API_MESSAGES_ENDPOINT.format(user_id=USER_EMAIL)
+    
+    # Fetch emails (handle pagination)
+    emails = []
+    while messages_url:
+        response = requests.get(messages_url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            emails.extend(data.get("value", []))  # Add emails from this page
+            messages_url = data.get("@odata.nextLink")  # Get the next page URL
+        else:
+            print(f"Error fetching emails: {response.status_code} - {response.text}")
+            break
+    
+    return emails
+
 def html_to_text(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
     return soup.get_text()
