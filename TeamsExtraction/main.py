@@ -7,7 +7,7 @@ from process_messages import process_messages
 def main():
     """Main function to extract Teams, Channels, and Messages."""
     
-    print("Fetching Teams...")
+    print(f"Fetching Teams for {config.USER_UPN}...")
     teams = extract_teams(config.USER_UPN)
     
     if not teams:

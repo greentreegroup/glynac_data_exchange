@@ -1,10 +1,10 @@
 import requests
 from auth_token import get_access_token
 import config
-from fetch_id import get_user_id
+#from fetch_id import get_user_id
 
 # Fetch user ID for authentication
-user_id = get_user_id(config.USER_UPN)
+#user_id = get_user_id(config.USER_UPN)
 
 # Get access token
 ACCESS_TOKEN = get_access_token()
