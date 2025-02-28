@@ -13,9 +13,6 @@ GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
 # OAuth Scopes for Microsoft Graph API
 SCOPES = ["https://graph.microsoft.com/.default"]
 
-# Upn for fetching messages
-USER_UPN = os.getenv("USER_UPN")
-
 # Sharepoint API credentials
 SITE_ID = os.getenv("SITE_ID")
 DRIVE_ID = os.getenv("DRIVE_ID")
