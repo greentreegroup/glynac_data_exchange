@@ -17,5 +17,8 @@ def get_access_token():
 
 if __name__ == "__main__":
     print("Fetching access token...")
-    access_token = get_access_token()
-    print("Access Token:", access_token[:50] + "...")
+    try:
+        access_token = get_access_token()
+        print("Access Token:", access_token[:50] + "...")
+    except requests.exceptions.RequestException as e:
+        print("Error fetching access token:", e)
