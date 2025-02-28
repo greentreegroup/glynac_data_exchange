@@ -8,10 +8,9 @@ def main():
         print("Error: SITE_ID or DRIVE_ID is not set. Exiting...")
         return
 
-    print(f"Using Site ID: {config.SITE_ID}")
+    print(f"\nUsing Site ID: {config.SITE_ID}")
     print(f"Using Drive ID: {config.DRIVE_ID}")
 
-    # Fetch document activity from SharePoint
     print("\nFetching recent document activity...")
     document_activity = get_recent_files(config.SITE_ID, config.DRIVE_ID)
 

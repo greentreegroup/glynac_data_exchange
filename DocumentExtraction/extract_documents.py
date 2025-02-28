@@ -4,7 +4,6 @@ from config import GRAPH_API_ENDPOINT
 from datetime import datetime
 
 def fetch_paginated_results(url, headers):
-    """Handles pagination for Graph API requests."""
     all_results = []
 
     while url:
@@ -16,7 +15,7 @@ def fetch_paginated_results(url, headers):
 
         data = response.json()
         all_results.extend(data.get("value", []))
-        url = data.get("@odata.nextLink")  # Get next page if available
+        url = data.get("@odata.nextLink")
 
     return all_results
 
@@ -39,7 +38,7 @@ def get_files_in_folder(site_id, drive_id, folder_id, folder_name="Root"):
     return all_files
 
 def get_recent_files(site_id, drive_id):
-    """Fetches all document activity from SharePoint, including files inside folders."""
+    """Fetches all document activity from SharePoint site, including files inside folders."""
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
     url = f"{GRAPH_API_ENDPOINT}/sites/{site_id}/drives/{drive_id}/root/children"

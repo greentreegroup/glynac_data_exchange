@@ -1,20 +1,21 @@
 import config
-from extract_messages import extract_teams
-from extract_messages import extract_channels
-from extract_messages import extract_channel_messages
-from process_messages import process_messages
+from extract_messages import extract_teams, extract_channels, extract_channel_messages
 
 def main():
-    """Main function to extract Teams, Channels, and Messages."""
+    """Extract and store Teams messages."""
+    user_upn = config.USER_UPN
+    if not user_upn:
+        print("Error: USER_UPN is not set.")
+        return
     
     print(f"Fetching Teams for {config.USER_UPN}...")
-    teams = extract_teams(config.USER_UPN)
+    teams = extract_teams(user_upn)
     
     if not teams:
         print("No Teams found for the user. Exiting.")
         return
     
-    for team in teams[:2]:  # Limit to first 2 teams for testing
+    for team in teams:
         print(f"\nTeam: {team['displayName']} (ID: {team['id']})")
         
         print("Fetching Channels...")
@@ -24,21 +25,26 @@ def main():
             print(f"No Channels found for Team {team['displayName']}. Skipping...")
             continue
         
-        for channel in channels[:2]:  # Limit to first 2 channels
+        for channel in channels:
             print(f"\nChannel: {channel['displayName']} (ID: {channel['id']})")
             
             print("Fetching Messages...")
-            messages = extract_channel_messages(team["id"], channel["id"])
+            messages = extract_channel_messages(team["id"], channel["id"], channel["displayName"])
             
             if not messages:
-                print(f"No messages found in Channel {channel['displayName']}.")
+                print(f"\nNo user messages found in Channel {channel['displayName']}.")
                 continue
             
-            print(f"Total Messages Fetched: {len(messages)}")
+            print(f"\n Total User Messages Fetched: {len(messages)}")
             
-            # Process the messages
-            processed_messages = process_messages(messages)
-        print("Processed Messages:", processed_messages)
+            for message in messages:
+                print(f"Chat ID: {message['Chat ID']}")
+                print(f"From: {message['From']}")
+                print(f"Channel: {message['Channel']}")
+                print(f"Message: {message['Message']}")
+                print(f"Thread ID: {message.get('Thread ID', 'N/A')}")
+                print(f"Timestamp: {message.get('Timestamp', 'N/A')}")
+                print(f"Date Extracted: {message['Date Extracted']}")
 
                 # Store the message in the database
                 

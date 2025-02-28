@@ -1,3 +1,4 @@
+from datetime import datetime
 def test(user_email):
     """Simulates fetching calendar events using a mock API response."""
     
@@ -24,9 +25,10 @@ def test(user_email):
                 ],
                 "start": {"dateTime": "2024-02-26T10:00:00", "timeZone": "UTC"},
                 "end": {"dateTime": "2024-02-26T11:00:00", "timeZone": "UTC"},
-                "meetingMessageType": "meetingRequest"
+                "meetingMessageType": "meetingRequest",
+                "Date Extracted": datetime.utcnow().isoformat()
             }
         ]
     }
 
-    return mock_response["value"]  # Simulate returning API data
+    return mock_response["value"]

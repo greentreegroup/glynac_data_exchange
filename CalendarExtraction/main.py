@@ -37,8 +37,8 @@ def main():
                 print(f"Attendees: {attendees_dict}")
                 print(f"Meeting Type: {event.get('meetingMessageType', 'No meeting type')}") 
                 print(f"Start: {event['start']['dateTime']}")
-                print(f"End: {event['end']['dateTime']}\n")
-                #print(f"Date Extracted: {event['Date Extracted']}\n")
+                print(f"End: {event['end']['dateTime']}")
+                print(f"Date Extracted: {event['Date Extracted']}\n")
         else:
             print("No events found in default Calendar.")
 

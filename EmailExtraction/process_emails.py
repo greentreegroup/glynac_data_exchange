@@ -1,5 +1,5 @@
 import config
-from fetch_emails import fetch_user_emails, html_to_text
+from extract_emails import fetch_user_emails, html_to_text
 from datetime import datetime
 
 def process_emails(emails):

@@ -1,7 +1,6 @@
 import requests
 import config
 def get_access_token():
-    """Fetches a new access token for Microsoft Graph API (Teams & Email)."""
     url = f"https://login.microsoftonline.com/{config.OUTLOOK_TENANT_ID}/oauth2/v2.0/token"
     data = {
         "grant_type": "client_credentials",

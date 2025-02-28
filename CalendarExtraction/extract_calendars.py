@@ -4,7 +4,6 @@ import config
 from datetime import datetime
 
 def fetch_paginated_results(url, headers):
-    """Handles paginated API requests."""
     all_results = []
     
     while url:
@@ -33,9 +32,9 @@ def check_calendars(user_upn):
     return filtered_calendars
 
 def get_calendar_events(user_upn, calendar_name="Calendar"):
-    """Fetches events from a user's specified calendar."""
+    """Fetches events from a user's calendar."""
     access_token = get_access_token()
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/calendars/{calendar_name}/events"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/calendars/{calendar_name}/events" #?$top=10"
     headers = {"Authorization": f"Bearer {access_token}"}
 
     events = fetch_paginated_results(url, headers)
@@ -52,7 +51,7 @@ def get_calendar_events(user_upn, calendar_name="Calendar"):
             "Meeting Type": event.get("meetingMessageType", "No meeting type"),
             "Start": event["start"]["dateTime"],
             "End": event["end"]["dateTime"],
-            #"Date Extracted": datetime.now().isoformat()
+            "Date Extracted": datetime.utcnow().isoformat()
         }
         for event in events
     ]
