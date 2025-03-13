@@ -4,6 +4,7 @@ import config
 from datetime import datetime
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
+from utils import categorize_sender
 
 def fetch_paginated_results(url, headers):
     """Fetches all results from a paginated API endpoint. 
@@ -40,18 +41,41 @@ def extract_emails(user_email):
     """Fetch and process emails."""
     emails = fetch_user_emails(user_email)
     processed_emails = []
+    
     for email in emails:
         email_id = email.get("id", "N/A")
         conversation_id = email.get("conversationId", "N/A")
         sender = email.get("from", {}).get("emailAddress", {}).get("address", "Unknown Sender")
+
+        #skip automated emails defined in function categorize_sender
+        '''category = categorize_sender(sender)
+        if category == "Automated":
+            continue'''
         
-        to_recipients = ", ".join(
+        # old
+        '''to_recipients = ", ".join(
             [recipient["emailAddress"]["address"] for recipient in email.get("toRecipients", []) if "emailAddress" in recipient]
-        ) or "N/A"
+        ) or "N/A"'''
+
+        # Skip emails not directly addressed to the user (cc, bcc)
+        to_recipients_list = [
+            recipient["emailAddress"]["address"].lower()
+            for recipient in email.get("toRecipients", [])
+            if "emailAddress" in recipient
+        ]
+        
+        to_recipients = ", ".join(to_recipients_list) or "N/A"
+
+        # Skip emails not directly addressed to the user (cc, bcc) but keep sent emails for rt calculation
+        if user_email.lower() not in to_recipients_list and sender.lower() != user_email.lower():
+            #print(f"Skipping email not directly addressed to {user_email}: {email_id}")  # Debugging
+            continue
 
         reply_to = ", ".join(
             [recipient["emailAddress"]["address"] for recipient in email.get("replyTo", []) if "emailAddress" in recipient]
-        ) or "N/A"
+        ) or sender # Default to sender if no reply-to
+
+        in_reply_to = email.get("inReplyTo", "N/A")
 
         subject = email.get("subject", "No Subject")
         body = html_to_text(email.get("body", {}).get("content", "No Content"))
@@ -74,8 +98,10 @@ def extract_emails(user_email):
             "Email ID": email_id,
             "Conversation ID": conversation_id,
             "From": sender,
+            #"Category": category,
             "To": to_recipients,
             "Reply-To": reply_to,
+            "InReplyTo": in_reply_to,
             "Subject": subject,
             "Body": body,
             "Received At": received_at,
