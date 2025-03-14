@@ -5,6 +5,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 from utils import categorize_sender
+import re
 
 def fetch_paginated_results(url, headers):
     """Fetches all results from a paginated API endpoint. 
@@ -35,7 +36,31 @@ def fetch_user_emails(user_email):
 def html_to_text(html_content):
     """Convert HTML content to plain text."""
     soup = BeautifulSoup(html_content, "html.parser")
-    return soup.get_text()
+
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+
+    # Remove unwanted attributes (like styling and JavaScript events)
+    for tag in soup.find_all(True):
+        tag.attrs = {}
+
+    # Extract plain text
+    text = soup.get_text(separator="\n")
+
+    # Remove headers, footers by specific patterns, not scalable, eg sent from samsung galaxy email
+    '''# Remove email headers (From, Sent, To, Subject lines)
+    text = re.sub(r"(?i)(^From: .*@.*\nSent: .*\nTo: .*\nSubject: .*)", "", text, flags=re.MULTILINE)
+
+    # Remove device signatures (Sent from iPhone, Outlook, etc.)
+    text = re.sub(r"(?i)(Sent from .*|Get Outlook for Android)", "", text)
+
+    # Remove footers (Unsubscribe links, legal text, company info)
+    text = re.sub(r"(?i)(Help with billing ・ Contact us|GitHub, Inc.*)", "", text)'''
+
+    # Clean up excessive newlines and whitespace
+    text = re.sub(r'\n+', '\n', text).strip()
+
+    return text
 
 def extract_emails(user_email):
     """Fetch and process emails."""

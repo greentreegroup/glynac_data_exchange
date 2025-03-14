@@ -30,7 +30,8 @@ def insert_email(conn, email_data):
             insert_query = """
             INSERT INTO email_data (email_id, subject, sender_email, recipient_email, reply_to, 
                                     conversation_id, received_at, sent_at, date_extracted, response_time, body)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (email_id) DO NOTHING;
             """
             cursor.execute(insert_query, (
                 email_data["email_id"], email_data["subject"], email_data["sender_email"],
