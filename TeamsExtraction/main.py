@@ -1,5 +1,6 @@
 import config
 from extract_messages import extract_teams, extract_channels, extract_channel_messages
+from store_teams import store_messages_in_db
 
 def main():
     """Extract and store Teams messages."""
@@ -37,7 +38,7 @@ def main():
             
             print(f"\n Total User Messages Fetched: {len(messages)}")
             
-            for message in messages[:7]: # Display first 5 messages
+            for message in messages[:5]: # Display first 5 messages
                 print(f"Chat ID: {message['Chat ID']}")
                 print(f"From: {message['From']}")
                 print(f"Channel: {message['Channel']}")
@@ -46,8 +47,8 @@ def main():
                 print(f"Timestamp: {message.get('Timestamp', 'N/A')}")
                 print(f"Date Extracted: {message['Date Extracted']}\n")
 
-                # Store the message in the database
-                
+            # Store the message in the database
+            store_messages_in_db(messages)    
     
 
 if __name__ == "__main__":
