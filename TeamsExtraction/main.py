@@ -37,14 +37,14 @@ def main():
             
             print(f"\n Total User Messages Fetched: {len(messages)}")
             
-            for message in messages:
+            for message in messages[:7]: # Display first 5 messages
                 print(f"Chat ID: {message['Chat ID']}")
                 print(f"From: {message['From']}")
                 print(f"Channel: {message['Channel']}")
                 print(f"Message: {message['Message']}")
                 print(f"Thread ID: {message.get('Thread ID', 'N/A')}")
                 print(f"Timestamp: {message.get('Timestamp', 'N/A')}")
-                print(f"Date Extracted: {message['Date Extracted']}")
+                print(f"Date Extracted: {message['Date Extracted']}\n")
 
                 # Store the message in the database
                 
