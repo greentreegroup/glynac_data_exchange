@@ -1,4 +1,5 @@
 from extract_documents import get_recent_files
+from store_documents import store_document_activity, connect_db
 import config
 
 def main():
@@ -6,6 +7,11 @@ def main():
 
     if not config.SITE_ID or not config.DRIVE_ID:
         print("Error: SITE_ID or DRIVE_ID is not set. Exiting...")
+        return
+    
+    conn = connect_db()
+    if not conn:
+        print("Database connection failed. Exiting.")
         return
 
     print(f"\nUsing Site ID: {config.SITE_ID}")
@@ -23,10 +29,12 @@ def main():
             print(f"User: {file['User']}")
             print(f"Timestamp: {file['Timestamp']}")
             print(f"Date Extracted: {file['Date Extracted']}\n")
+            store_document_activity(conn, file)
     else:
         print("No recent document activity found.")
 
-    # Store document activity in database
+    conn.close()
+    print("Database connection closed.")
 
 if __name__ == "__main__":
     main()

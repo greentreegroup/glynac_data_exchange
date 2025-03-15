@@ -2,6 +2,8 @@ import requests
 from auth_token import get_access_token
 import config
 from datetime import datetime
+from bs4 import BeautifulSoup
+import re
 
 def fetch_paginated_results(url, headers):
     all_results = []
@@ -18,6 +20,16 @@ def fetch_paginated_results(url, headers):
 
     return all_results
 
+def html_to_text(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text(separator="\n")
+
+    text = re.sub(r"[_]{5,}", "", text)  # Remove lines with 5 or more underscores
+    text = re.sub(r"\n\s*\n", "\n", text)  # Remove empty lines
+    text = re.sub(r"_+$", "", text.strip())  # Remove trailing underscores
+
+    return text.strip()
+        
 def check_calendars(user_upn):
     """Fetches and returns available calendars for a user."""
     access_token = get_access_token()
@@ -44,7 +56,7 @@ def get_calendar_events(user_upn, calendar_name="Calendar"):
             "Event ID": event["id"],
             "Organizer": event["organizer"]["emailAddress"]["name"],
             "Title": event["subject"],
-            "Description": event.get("bodyPreview", "No description"),
+            "Description": html_to_text(event.get("bodyPreview", "No description")),
             "Location": event.get("location", {}).get("displayName", "No location"),
             "Attendees": {attendee["emailAddress"]["name"]: attendee["type"]
                           for attendee in event.get("attendees", [])},
