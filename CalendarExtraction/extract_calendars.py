@@ -26,7 +26,7 @@ def html_to_text(html_content):
 
     text = re.sub(r"[_]{5,}", "", text)  # Remove lines with 5 or more underscores
     text = re.sub(r"\n\s*\n", "\n", text)  # Remove empty lines
-    text = re.sub(r"_+$", "", text.strip())  # Remove trailing underscores
+    text = re.sub(r"\s{2,}", " ", text.strip())  # Replace multiple spaces
 
     return text.strip()
         
@@ -51,19 +51,37 @@ def get_calendar_events(user_upn, calendar_name="Calendar"):
 
     events = fetch_paginated_results(url, headers)
 
-    return [
-        {
+    extracted_events = []
+    for event in events:
+
+        location = event.get("location", {}).get("displayName", "").strip()
+        description = html_to_text(event.get("bodyPreview", "No description"))
+        virtual = event.get("isOnlineMeeting", False)
+
+        # Fix Virtual Meetings with Meeting Links
+        meeting_links = ["zoom.us", "google.com", "meet.google", "teams.microsoft", "interview-links.indeed", "employers.indeed.com", "virtual-interviews/upcoming"]
+        if any(link in location.lower() for link in meeting_links) or any(link in description.lower() for link in meeting_links):
+            virtual = True
+        if not location or location.lower() == "virtual meeting (link in description)":
+            location = "Virtual Meeting (link in Description)"
+
+
+        attendees = {attendee["emailAddress"]["name"]: attendee["type"] for attendee in event.get("attendees", [])}
+        if not attendees:
+            attendees = {event["organizer"]["emailAddress"]["name"]: "Organizer"}
+
+        extracted_events.append({
             "Event ID": event["id"],
+            "Tenant ID": config.TENANT_ID,
             "Organizer": event["organizer"]["emailAddress"]["name"],
-            "Title": event["subject"],
-            "Description": html_to_text(event.get("bodyPreview", "No description")),
-            "Location": event.get("location", {}).get("displayName", "No location"),
-            "Attendees": {attendee["emailAddress"]["name"]: attendee["type"]
-                          for attendee in event.get("attendees", [])},
-            "Meeting Type": event.get("meetingMessageType", "No meeting type"),
+            "Title": event.get("subject") or "No title",
+            "Description": description,
+            "Location": location,
+            "Attendees": attendees,
+            "Virtual": virtual,
             "Start": event["start"]["dateTime"],
             "End": event["end"]["dateTime"],
             "Date Extracted": datetime.utcnow().isoformat()
-        }
-        for event in events
-    ]
+        })
+
+    return extracted_events

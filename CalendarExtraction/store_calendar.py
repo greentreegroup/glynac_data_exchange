@@ -29,15 +29,16 @@ def store_calendar_event(conn, event_data):
     try:
         with conn.cursor() as cursor:
             insert_query = """
-            INSERT INTO calendar_events (event_id, organizer_name, title, description, location, attendees,
-                                         meeting_type, start_time, end_time, date_extracted)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO calendar_events (event_id, tenant_id, organizer_name, title, description, location, attendees,
+                                         virtual, start_time, end_time, date_extracted)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (event_id) DO NOTHING;
             """
             cursor.execute(insert_query, (
-                event_data["Event ID"], event_data["Organizer"], event_data["Title"],
+                event_data["Event ID"],
+                event_data["Tenant ID"], event_data["Organizer"], event_data["Title"],
                 event_data["Description"], event_data["Location"], json.dumps(event_data["Attendees"]),
-                event_data["Meeting Type"], event_data["Start"], event_data["End"],
+                event_data["Virtual"], event_data["Start"], event_data["End"],
                 event_data["Date Extracted"]
             ))
             conn.commit()

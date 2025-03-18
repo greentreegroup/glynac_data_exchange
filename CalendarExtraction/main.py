@@ -31,6 +31,7 @@ def main():
         if events:
             for event in events:
                 print(f"Event ID: {event['Event ID']}")
+                print(f"Tenant ID: {event['Tenant ID']}")
                 print(f"Organizer: {event['Organizer']}")
                 print(f"Title: {event['Title']}")
                 print(f"Description: {event['Description']}")
@@ -40,7 +41,7 @@ def main():
                     for attendee in event.get("attendees", [])
                 }'''
                 print(f"Attendees: {event['Attendees']}")
-                print(f"Meeting Type: {event['Meeting Type']}") 
+                print(f"Virtual: {event['Virtual']}") 
                 print(f"Start: {event['Start']}")
                 print(f"End: {event['End']}")
                 print(f"Date Extracted: {event['Date Extracted']}\n")
@@ -49,7 +50,7 @@ def main():
             print("No events found in default Calendar.")
 
     conn.close()
-    print("✅ Database connection closed.")
+    print("Database connection closed.")
 
 if __name__ == "__main__":
     main()
