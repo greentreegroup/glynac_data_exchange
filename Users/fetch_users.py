@@ -13,6 +13,6 @@ def get_all_users(access_token):
         res.raise_for_status()
         data = res.json()
         users.extend(data.get('value', []))
-        url = data.get('@odata.nextLink')  # handle paging
+        url = data.get('@odata.nextLink')
 
     return users
