@@ -12,11 +12,12 @@ def fetch_paginated_message_ids(user_upn):
     """Fetch only message metadata (IDs) for a user."""
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages?$select=id&$top=100"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages?$select=id&$top=10"
 
     all_ids = []
+    
     page_count = 0
-    max_pages = 5  # Safety cap: fetch at most 5 pages (5 x 30 = 150 emails)
+    max_pages = 5  # Safety cap: fetch at most 5 pages (5 x 10 = 50 emails)
 
     while url and page_count < max_pages:
         try:
