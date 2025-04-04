@@ -1,8 +1,8 @@
 import os
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+#load_dotenv()
 
 # Outlook API credentials
 OUTLOOK_CLIENT_ID = os.getenv("CLIENT_ID")

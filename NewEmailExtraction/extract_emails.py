@@ -13,11 +13,11 @@ import threading
 
 EMAIL_JSON_FOLDER = "email_json"
 
-def fetch_paginated_message_ids(user_upn):
+def fetch_paginated_message_ids(user_upn, folder_name="Inbox"):
     """Fetch only message metadata (IDs) for a user."""
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages?$select=id&$top=10"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/mailFolders/{folder_name}/messages?$select=id&$top=10"
 
     all_ids = []
 
@@ -45,11 +45,11 @@ def fetch_paginated_message_ids(user_upn):
 
     return all_ids
 
-def fetch_full_message(user_upn, message_id):
+def fetch_full_message(user_upn, message_id, folder_name="Inbox"):
     """Fetch full message details for a single message, with retry on 429."""
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages/{message_id}"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/mailFolders/{folder_name}/messages/{message_id}"
 
     for attempt in range(3):
         try:
@@ -78,10 +78,10 @@ def html_to_text(html_content):
     text = soup.get_text(separator="\n")
     return re.sub(r'\n+', '\n', text).strip()
 
-def extract_emails(user_upn):
+def extract_emails(user_upn, folder_name="Inbox"):
     existing_message_ids = set()
     for filename in os.listdir(EMAIL_JSON_FOLDER):
-        if filename.startswith(f"emails_{user_upn.replace('@', '_at_')}") and filename.endswith(".json"):
+        if filename.startswith(f"{folder_name.lower()}_emails_{user_upn.replace('@', '_at_')}") and filename.endswith(".json"):
             filepath = os.path.join(EMAIL_JSON_FOLDER, filename)
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
@@ -94,7 +94,7 @@ def extract_emails(user_upn):
 
     print(f"Thread: {threading.current_thread().name} - Found {len(existing_message_ids)} email IDs already in JSON files for user: {user_upn}.")
 
-    all_message_ids_fetched = fetch_paginated_message_ids(user_upn)
+    all_message_ids_fetched = fetch_paginated_message_ids(user_upn, folder_name)
     new_message_ids_to_process = [mid for mid in all_message_ids_fetched if mid not in existing_message_ids]
 
     print(f"Thread: {threading.current_thread().name} - Fetched {len(all_message_ids_fetched)} message IDs from API.")
@@ -116,7 +116,7 @@ def extract_emails(user_upn):
         processed_count += 1
         current_thread = threading.current_thread()
         print(f"Thread: {current_thread.name} - Processing new message ID {message_id} ({processed_count}/{total_count}) for user: {user_upn}")
-        email = fetch_full_message(user_upn, message_id)
+        email = fetch_full_message(user_upn, message_id, folder_name)
         if not email:
             print(f"Thread: {current_thread.name} - Could not fetch full message for new ID: {message_id} for user: {user_upn}")
             return None

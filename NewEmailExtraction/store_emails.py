@@ -25,26 +25,30 @@ def connect_db():
     )
 
 def load_emails_from_json(folder):
-    all_emails = []
+    folder_data = {"Inbox": [], "SentItems": []}
     for file_name in os.listdir(folder):
         if file_name.endswith(".json"):
             file_path = os.path.join(folder, file_name)
-            with open(file_path, "r", encoding="utf-8") as f:
-                try:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    all_emails.extend(data)
-                except Exception as e:
-                    logging.error(f"Error loading {file_name}: {e}")
-    return all_emails
+                    if file_name.lower().startswith("inbox_"):
+                        folder_data["Inbox"].extend(data)
+                    elif file_name.lower().startswith("sentitems_"):
+                        folder_data["SentItems"].extend(data)
+            except Exception as e:
+                logging.error(f"Error loading {file_name}: {e}")
+    return folder_data
 
-def insert_batch(batch):
+
+def insert_batch(batch, table_name):
     conn = None
     thread_name = threading.current_thread().name
     try:
         conn = connect_db()
         with conn.cursor() as cur:
-            insert_query = """
-            INSERT INTO email_data_field_test (
+            insert_query = f"""
+            INSERT INTO {table_name} (
                 platform,
                 user_upn,
                 email_id,
@@ -65,7 +69,7 @@ def insert_batch(batch):
             """
             cur.executemany(insert_query, batch)
             conn.commit()
-            logging.info(f"Inserted {len(batch)} emails.")
+            logging.info(f"Inserted {len(batch)} emails into {table_name}.")
     except psycopg2.Error as e:
         if conn:
             conn.rollback()
@@ -73,7 +77,7 @@ def insert_batch(batch):
     except Exception as e:
         if conn:
             conn.rollback()
-        logging.error(f"An unexpected error occurred during batch insertion: {e}")
+        logging.error(f"Error inserting batch into {table_name}: {e}")
     finally:
         if conn:
             conn.close()
@@ -81,23 +85,25 @@ def insert_batch(batch):
 
 def main():
     logging.info("Starting email import from JSON using threads...")
-    emails = load_emails_from_json(EMAIL_JSON_FOLDER)
 
-    # Add only the specified keys if needed
-    for email in emails:
-        email["platform"] = "Outlook"
-        email["user_upn"] = email.get("user_upn", "unknown@lcwmail.com")
-        email["body"] = email.get("body") or email.get("full_body") or ""
+    folder_data = load_emails_from_json(EMAIL_JSON_FOLDER)
 
-    total_emails = len(emails)
-    logging.info(f"Total emails loaded: {total_emails}")
+    for folder_name, emails in folder_data.items():
+        if not emails:
+            continue
 
-    batches = [emails[i:i + BATCH_SIZE] for i in range(0, total_emails, BATCH_SIZE)]
-    total_batches = len(batches)
-    logging.info(f"Total batches to process: {total_batches} with batch size: {BATCH_SIZE}")
+        for email in emails:
+            email["platform"] = "Outlook"
+            email["user_upn"] = email.get("user_upn", "unknown@lcwmail.com")
+            email["body"] = email.get("body") or email.get("full_body") or ""
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
-        executor.map(insert_batch, batches)
+        table_name = "email_data_field_inbox" if folder_name == "Inbox" else "email_data_field_sent"
+        logging.info(f"Preparing to insert {len(emails)} emails into {table_name}")
+
+        batches = [emails[i:i + BATCH_SIZE] for i in range(0, len(emails), BATCH_SIZE)]
+
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            executor.map(lambda b: insert_batch(b, table_name), batches)
 
     logging.info("Done with threaded email import.")
 
