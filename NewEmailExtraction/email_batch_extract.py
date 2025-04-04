@@ -6,42 +6,39 @@ from fetch_users import get_analyzable_users
 import signal
 import sys
 
-def signal_handler(sig, frame):
-    print("\nScript interrupted. Exiting gracefully...")
-    sys.exit(0)
+signal.signal(signal.SIGINT, lambda sig, frame: (print("\nInterrupted. Exiting..."), sys.exit(0)))
 
-signal.signal(signal.SIGINT, signal_handler)
-
-# Folder to save JSON files
 os.makedirs("email_json", exist_ok=True)
 
+FOLDERS = ["Inbox", "SentItems"]
+
 def save_emails_to_json(user_upn):
-    try:
-        print(f"Fetching emails for {user_upn}...")
-        emails = extract_emails(user_upn)
+    for folder_name in FOLDERS:
+        filename = f"{folder_name.lower()}_emails_{user_upn.replace('@', '_at_')}.json"
+        filepath = os.path.join("email_json", filename)
+        if os.path.exists(filepath):
+            print(f"[{folder_name}] Skipping {user_upn} (already done)")
+            continue
 
-        if not emails:
-            print(f"No emails found for {user_upn}.")
-            return
+        try:
+            print(f"[{folder_name}] Fetching emails for {user_upn}...")
+            emails = extract_emails(user_upn, folder_name)
 
-        file_path = os.path.join("email_json", f"emails_{user_upn.replace('@', '_at_')}.json")
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(emails, f, indent=2)
+            if not emails:
+                print(f"[{folder_name}] No emails found for {user_upn}.")
+                continue
 
-        print(f"Saved {len(emails)} emails for {user_upn} to {file_path}")
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(emails, f, indent=2)
 
-    except Exception as e:
-        print(f"Error processing {user_upn}: {e}")
+            print(f"[{folder_name}] Saved {len(emails)} emails for {user_upn}")
+
+        except Exception as e:
+            print(f"[{folder_name}] Error processing {user_upn}: {e}")
 
 def main():
     users = get_analyzable_users()
-
-    if not users:
-        print("No analyzable users found.")
-        return
-
-    # Use ThreadPoolExecutor to process users in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor: # Adjust max_workers as needed
         executor.map(save_emails_to_json, users)
 
 if __name__ == "__main__":

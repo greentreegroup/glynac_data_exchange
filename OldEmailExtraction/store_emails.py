@@ -24,19 +24,18 @@ def load_emails_from_json(folder):
                 try:
                     data = json.load(f)
                     all_emails.extend(data)
-                    print(f"{file_name}: {len(data)} emails")
                 except Exception as e:
                     print(f"Error loading {file_name}: {e}")
     return all_emails
 
-def batch_insert_emails(emails, table_name, conn):
+def batch_insert_emails(emails, conn):
     if not emails:
-        print(f"No emails to insert into {table_name}.")
+        print("No emails to insert.")
         return
 
     with conn.cursor() as cur:
-        insert_query = f"""
-        INSERT INTO {table_name} (
+        insert_query = """
+        INSERT INTO email_data_field_test (
             platform,
             user_upn,
             email_id,
@@ -58,37 +57,25 @@ def batch_insert_emails(emails, table_name, conn):
         try:
             cur.executemany(insert_query, emails)
             conn.commit()
-            print(f"Inserted {len(emails)} emails into {table_name}.")
+            print(f"Inserted {len(emails)} emails into database.")
         except Exception as e:
             conn.rollback()
-            print(f"Failed to insert into {table_name}: {e}")
+            print(f"Failed to insert emails: {e}")
 
 def main():
     print("Starting email import from JSON...")
     conn = connect_db()
-    all_emails = load_emails_from_json(EMAIL_JSON_FOLDER)
+    emails = load_emails_from_json(EMAIL_JSON_FOLDER)
 
-    inbox_emails = []
-    sent_emails = []
-
-    for email in all_emails:
+    # Add missing fields if needed
+    for email in emails:
         email["platform"] = "Outlook"
         email["user_upn"] = email.get("user_upn", "unknown@lcwmail.com")
         email["body"] = email.get("body") or email.get("full_body") or ""
 
-        folder = email.get("folder", "").lower()
-        if folder == "inbox":
-            inbox_emails.append(email)
-        elif folder == "sentitems":
-            sent_emails.append(email)
-        else:
-            print(f"Skipping email with unknown folder: {folder}")
-
-    batch_insert_emails(inbox_emails, "email_data_field_inbox", conn)
-    batch_insert_emails(sent_emails, "email_data_field_sent", conn)
-
+    batch_insert_emails(emails, conn)
     conn.close()
-    print("All inserts done.")
+    print("Done.")
 
 if __name__ == "__main__":
     main()
