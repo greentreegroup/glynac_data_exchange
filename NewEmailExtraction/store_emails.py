@@ -26,17 +26,25 @@ def connect_db():
     )
 
 def load_emails_from_json(folder):
-    all_emails = []
+    inbox_emails = []
+    sent_emails = []
+
     for file_name in os.listdir(folder):
-        if file_name.endswith(".json"):
-            file_path = os.path.join(folder, file_name)
+        file_path = os.path.join(folder, file_name)
+        if not file_name.endswith(".json"):
+            continue
+
+        try:
             with open(file_path, "r", encoding="utf-8") as f:
-                try:
-                    data = json.load(f)
-                    all_emails.extend(data)
-                except Exception as e:
-                    logging.error(f"Error loading {file_name}: {e}")
-    return all_emails
+                data = json.load(f)
+                if file_name.startswith("inbox_"):
+                    inbox_emails.extend(data)
+                elif file_name.startswith("sentitems_"):
+                    sent_emails.extend(data)
+        except Exception as e:
+            logging.error(f"Error loading {file_name}: {e}")
+
+    return {"Inbox": inbox_emails, "SentItems": sent_emails}
 
 def load_seeded_ids():
     seeded_ids = set()
@@ -63,7 +71,7 @@ def save_seeded_ids(seeded_ids):
     except Exception as e:
         logging.error(f"Error saving seeded IDs to '{SEEDED_IDS_FILE}': {e}")
 
-def insert_batch(batch, seeded_ids):
+def insert_batch(batch, seeded_ids, table_name):
     conn = None
     thread_name = threading.current_thread().name
     inserted_count = 0
@@ -81,8 +89,8 @@ def insert_batch(batch, seeded_ids):
     try:
         conn = connect_db()
         with conn.cursor() as cur:
-            insert_query = """
-            INSERT INTO email_data_field_test (
+            insert_query = f"""
+            INSERT INTO {table_name} (
                 platform,
                 user_upn,
                 email_id,
@@ -126,39 +134,41 @@ def insert_batch(batch, seeded_ids):
 
 def main():
     logging.info("Starting email import from JSON using threads (skipping already seeded IDs)...")
-    emails = load_emails_from_json(EMAIL_JSON_FOLDER)
+    foldered_emails = load_emails_from_json(EMAIL_JSON_FOLDER)
     seeded_ids = load_seeded_ids()
     logging.info(f"Loaded {len(seeded_ids)} already seeded email IDs.")
 
-    emails_to_process = [email for email in emails if email.get("email_id") and email.get("email_id") not in seeded_ids]
-    logging.info(f"Found {len(emails_to_process)} new emails in JSON files to process for seeding.")
+    for folder_name, emails in foldered_emails.items():
+        if not emails:
+            logging.info(f"No emails found for folder: {folder_name}")
+            continue
 
-    # Add only the specified keys if needed
-    for email in emails_to_process:
-        email["platform"] = "Outlook"
-        email["user_upn"] = email.get("user_upn", "unknown@lcwmail.com")
-        email["body"] = email.get("body") or email.get("full_body") or ""
+        table_name = "email_data_field_inbox" if folder_name == "Inbox" else "email_data_field_sent"
+        logging.info(f"Processing {len(emails)} emails from {folder_name} folder into table '{table_name}'.")
 
-    total_emails_to_process = len(emails_to_process)
-    logging.info(f"Total new emails to process: {total_emails_to_process}")
+        # Add platform + user fallback
+        for email in emails:
+            email["platform"] = "Outlook"
+            email["user_upn"] = email.get("user_upn", "unknown@lcwmail.com")
+            email["body"] = email.get("body") or email.get("full_body") or ""
 
-    if not emails_to_process:
-        logging.info("No new emails to process for seeding.")
-        return
+        emails_to_process = [e for e in emails if e.get("email_id") and e["email_id"] not in seeded_ids]
 
-    batches = [emails_to_process[i:i + BATCH_SIZE] for i in range(0, total_emails_to_process, BATCH_SIZE)]
-    total_batches = len(batches)
-    logging.info(f"Total batches to process: {total_batches} with batch size: {BATCH_SIZE}")
+        if not emails_to_process:
+            logging.info(f"No new emails to insert for {folder_name}.")
+            continue
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # Pass the seeded_ids set to the insert_batch function
-        futures = [executor.submit(insert_batch, batch, seeded_ids) for batch in batches]
-        for future in futures:
-            future.result()  # Wait for all tasks to complete
+        batches = [emails_to_process[i:i + BATCH_SIZE] for i in range(0, len(emails_to_process), BATCH_SIZE)]
+        logging.info(f"{len(batches)} batches to process for {folder_name} folder.")
 
-    # Save the updated set of seeded IDs after the process
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = [executor.submit(insert_batch, batch, seeded_ids, table_name) for batch in batches]
+            for future in futures:
+                future.result()
+
     save_seeded_ids(seeded_ids)
-    logging.info("Done with threaded email import (skipped already seeded IDs).")
+    logging.info("Done with threaded email import (Inbox and SentItems).")
+
 
 if __name__ == "__main__":
     main()

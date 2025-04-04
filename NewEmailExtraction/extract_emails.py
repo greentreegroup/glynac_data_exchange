@@ -14,11 +14,11 @@ import threading
 EMAIL_JSON_FOLDER = "email_json"
 NO_MORE_EMAILS_FILE = "no_more_emails.json"
 
-def fetch_paginated_message_ids(user_upn, skip_pages=50):
+def fetch_paginated_message_ids(user_upn, folder_name="Inbox", skip_pages=50):
     """Fetch all message metadata (IDs) for a user using pagination, with an option to skip initial pages."""
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages?$select=id&$top=10"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/mailFolders/{folder_name}/messages?$select=id&$top=10"
 
     all_ids = []
     page_count = 0
@@ -122,12 +122,13 @@ def is_user_in_no_more_emails(user_upn):
             pass  # File might not exist or be corrupted, proceed as normal
     return False
 
-def extract_emails(user_upn):
+def extract_emails(user_upn, folder_name="Inbox"):
     if is_user_in_no_more_emails(user_upn):
         return []
     existing_message_ids = set()
     for filename in os.listdir(EMAIL_JSON_FOLDER):
-        if filename.startswith(f"emails_{user_upn.replace('@', '_at_')}") and filename.endswith(".json"):
+        if filename.startswith(f"{folder_name.lower()}_emails_{user_upn.replace('@', '_at_')}") and filename.endswith(".json"):
+
             filepath = os.path.join(EMAIL_JSON_FOLDER, filename)
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
@@ -140,7 +141,7 @@ def extract_emails(user_upn):
 
     print(f"Thread: {threading.current_thread().name} - Found {len(existing_message_ids)} email IDs already in JSON files for user: {user_upn}.")
 
-    all_message_ids_fetched = fetch_paginated_message_ids(user_upn)
+    all_message_ids_fetched = fetch_paginated_message_ids(user_upn, folder_name)
     new_message_ids_to_process = [mid for mid in all_message_ids_fetched if mid not in existing_message_ids]
 
     print(f"Thread: {threading.current_thread().name} - Fetched {len(all_message_ids_fetched)} message IDs from API.")
