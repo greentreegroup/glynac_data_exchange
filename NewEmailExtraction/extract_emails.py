@@ -12,23 +12,32 @@ import time
 import threading
 
 EMAIL_JSON_FOLDER = "email_json"
+NO_MORE_EMAILS_FILE = "no_more_emails.json"
 
-def fetch_paginated_message_ids(user_upn):
-    """Fetch only message metadata (IDs) for a user."""
+def fetch_paginated_message_ids(user_upn, skip_pages=50):
+    """Fetch all message metadata (IDs) for a user using pagination, with an option to skip initial pages."""
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
     url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages?$select=id&$top=10"
 
     all_ids = []
-
     page_count = 0
-    max_pages = 300  # Safety cap: fetch at most 120 pages (200 x 10 = 200 emails)
+    max_pages = 51  # Increased safety cap
+    skipped_count = 0  # Number of pages to skip
 
     while url and page_count < max_pages:
         try:
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             data = response.json()
+
+            if skipped_count < skip_pages:
+                print(f"Thread: {threading.current_thread().name} - Skipping page {page_count + 1} for {user_upn}...")
+                url = data.get("@odata.nextLink")
+                page_count += 1
+                skipped_count += 1
+                continue  # Skip processing this page's IDs
+
             message_batch = [msg['id'] for msg in data.get("value", [])]
             all_ids.extend(message_batch)
 
@@ -40,8 +49,12 @@ def fetch_paginated_message_ids(user_upn):
 
         except requests.exceptions.RequestException as e:
             current_thread = threading.current_thread()
-            print(f"Thread: {current_thread.name} - Error fetching IDs for {user_upn}: {e}")
-            return []
+            print(f"Thread: {current_thread.name} - Error fetching IDs for {user_upn} on page {page_count}: {e}")
+            return all_ids
+
+    if page_count >= max_pages and url:
+        current_thread = threading.current_thread()
+        print(f"Thread: {current_thread.name} - Warning: Reached maximum page limit ({max_pages}) while fetching IDs for {user_upn}. Some emails might have been skipped.")
 
     return all_ids
 
@@ -78,7 +91,40 @@ def html_to_text(html_content):
     text = soup.get_text(separator="\n")
     return re.sub(r'\n+', '\n', text).strip()
 
+def record_no_more_emails(user_upn):
+    processed_users = set()
+    if os.path.exists(NO_MORE_EMAILS_FILE):
+        try:
+            with open(NO_MORE_EMAILS_FILE, 'r') as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    processed_users.update(data)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass  # Will create a new file or overwrite if corrupted
+
+    processed_users.add(user_upn)
+    try:
+        with open(NO_MORE_EMAILS_FILE, 'w') as f:
+            json.dump(list(processed_users), f, indent=2)
+        print(f"Thread: {threading.current_thread().name} - Recorded '{user_upn}' in '{NO_MORE_EMAILS_FILE}' as no emails were found.")
+    except Exception as e:
+        print(f"Thread: {threading.current_thread().name} - Error writing to '{NO_MORE_EMAILS_FILE}': {e}")
+
+def is_user_in_no_more_emails(user_upn):
+    if os.path.exists(NO_MORE_EMAILS_FILE):
+        try:
+            with open(NO_MORE_EMAILS_FILE, 'r') as f:
+                data = json.load(f)
+                if isinstance(data, list) and user_upn in data:
+                    print(f"Thread: {threading.current_thread().name} - Skipping user '{user_upn}' as they are in '{NO_MORE_EMAILS_FILE}'.")
+                    return True
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass  # File might not exist or be corrupted, proceed as normal
+    return False
+
 def extract_emails(user_upn):
+    if is_user_in_no_more_emails(user_upn):
+        return []
     existing_message_ids = set()
     for filename in os.listdir(EMAIL_JSON_FOLDER):
         if filename.startswith(f"emails_{user_upn.replace('@', '_at_')}") and filename.endswith(".json"):
@@ -99,6 +145,10 @@ def extract_emails(user_upn):
 
     print(f"Thread: {threading.current_thread().name} - Fetched {len(all_message_ids_fetched)} message IDs from API.")
     print(f"Thread: {threading.current_thread().name} - Found {len(new_message_ids_to_process)} new message IDs to process for {user_upn}.")
+    if not all_message_ids_fetched:
+        print(f"Thread: {threading.current_thread().name} - No message IDs fetched from API for user: {user_upn}.")
+        record_no_more_emails(user_upn)
+        return []
 
     processed_emails = []
     parent_thread = threading.current_thread()
@@ -156,7 +206,7 @@ def extract_emails(user_upn):
             "date_extracted": datetime.utcnow().isoformat()
         }
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=24) as executor:
         results = executor.map(process_message, new_message_ids_to_process)
 
     processed_emails = [email for email in results if email is not None]
