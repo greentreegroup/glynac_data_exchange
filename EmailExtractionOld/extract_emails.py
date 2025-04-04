@@ -8,17 +8,14 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-def fetch_paginated_message_ids(user_upn):
-    """Fetch only message metadata (IDs) for a user."""
+def fetch_paginated_message_ids(user_upn, folder_name):
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages?$select=id&$top=10"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/mailFolders/{folder_name}/messages?$select=id&$top=10"
 
     all_ids = []
-    
-    # TODO: Remove page_count and max_pages after testing for all emails per user
     page_count = 0
-    max_pages = 5  # Safety cap: fetch at most 5 pages (5 x 10 = 50 emails)
+    max_pages = 120
 
     while url and page_count < max_pages:
         try:
@@ -29,20 +26,17 @@ def fetch_paginated_message_ids(user_upn):
             all_ids.extend(message_batch)
 
             page_count += 1
-
             url = data.get("@odata.nextLink")
-
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching IDs for {user_upn}: {e}")
+            print(f"Error fetching IDs from {folder_name} for {user_upn}: {e}")
             return []
 
     return all_ids
 
-def fetch_full_message(user_upn, message_id):
-    """Fetch full message details for a single message, with retry on 429."""
+def fetch_full_message(user_upn, message_id, folder_name):
     access_token = get_access_token()
     headers = {"Authorization": f"Bearer {access_token}"}
-    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/messages/{message_id}"
+    url = f"{config.GRAPH_API_ENDPOINT}/users/{user_upn}/mailFolders/{folder_name}/messages/{message_id}"
 
     for attempt in range(3):
         try:
@@ -55,12 +49,11 @@ def fetch_full_message(user_upn, message_id):
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching full message {message_id} for {user_upn}: {e}")
+            print(f"Error fetching message {message_id} from {folder_name} for {user_upn}: {e}")
             time.sleep(2)
             continue
 
     return None
-
 
 def html_to_text(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
@@ -71,12 +64,12 @@ def html_to_text(html_content):
     text = soup.get_text(separator="\n")
     return re.sub(r'\n+', '\n', text).strip()
 
-def extract_emails(user_upn):
-    message_ids = fetch_paginated_message_ids(user_upn)
+def extract_emails(user_upn, folder_name):
+    message_ids = fetch_paginated_message_ids(user_upn, folder_name)
     processed_emails = []
 
     def process_message(message_id):
-        email = fetch_full_message(user_upn, message_id)
+        email = fetch_full_message(user_upn, message_id, folder_name)
         if not email:
             return None
 
@@ -106,7 +99,9 @@ def extract_emails(user_upn):
             "body": body,
             "received_at": parse_timestamp(email.get("receivedDateTime")),
             "sent_at": parse_timestamp(email.get("sentDateTime")),
-            "date_extracted": datetime.utcnow().isoformat()
+            "date_extracted": datetime.utcnow().isoformat(),
+            "folder": folder_name,
+            "user_upn": user_upn
         }
 
     with ThreadPoolExecutor(max_workers=3) as executor:

@@ -96,6 +96,10 @@ def extract_channel_messages(team_id, channel_id, channel_name):
 
         # Ensure sender is a real user (not a bot or system process) #not sender or
         sender = message.get("from") or {}
+        user_info = sender.get("user", {})
+
+        sender_name = user_info.get("displayName", "Unknown").strip()
+
         if "user" not in sender: 
             #print(f"Skipping message from non-user (ID: {message.get('id')})")
             continue
