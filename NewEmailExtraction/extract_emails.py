@@ -1,3 +1,5 @@
+import os
+import json
 import requests
 from auth_token import get_access_token
 import config
@@ -9,6 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import threading
 
+EMAIL_JSON_FOLDER = "email_json"
+
 def fetch_paginated_message_ids(user_upn):
     """Fetch only message metadata (IDs) for a user."""
     access_token = get_access_token()
@@ -18,7 +22,7 @@ def fetch_paginated_message_ids(user_upn):
     all_ids = []
 
     page_count = 0
-    max_pages = 120  # Safety cap: fetch at most 120 pages (120 x 10 = 1200 emails)
+    max_pages = 300  # Safety cap: fetch at most 120 pages (200 x 10 = 200 emails)
 
     while url and page_count < max_pages:
         try:
@@ -75,28 +79,52 @@ def html_to_text(html_content):
     return re.sub(r'\n+', '\n', text).strip()
 
 def extract_emails(user_upn):
-    message_ids = fetch_paginated_message_ids(user_upn)
+    existing_message_ids = set()
+    for filename in os.listdir(EMAIL_JSON_FOLDER):
+        if filename.startswith(f"emails_{user_upn.replace('@', '_at_')}") and filename.endswith(".json"):
+            filepath = os.path.join(EMAIL_JSON_FOLDER, filename)
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for email_data in data:
+                        if 'email_id' in email_data:
+                            existing_message_ids.add(email_data['email_id'])
+            except Exception as e:
+                print(f"Thread: {threading.current_thread().name} - Error reading existing JSON file {filename}: {e}")
+
+    print(f"Thread: {threading.current_thread().name} - Found {len(existing_message_ids)} email IDs already in JSON files for user: {user_upn}.")
+
+    all_message_ids_fetched = fetch_paginated_message_ids(user_upn)
+    new_message_ids_to_process = [mid for mid in all_message_ids_fetched if mid not in existing_message_ids]
+
+    print(f"Thread: {threading.current_thread().name} - Fetched {len(all_message_ids_fetched)} message IDs from API.")
+    print(f"Thread: {threading.current_thread().name} - Found {len(new_message_ids_to_process)} new message IDs to process for {user_upn}.")
 
     processed_emails = []
     parent_thread = threading.current_thread()
-    print(f"Thread: {parent_thread.name} - Starting email extraction for user: {user_upn} with {len(message_ids)} message IDs.")
-    total_count = len(message_ids)
+    print(f"Thread: {parent_thread.name} - Starting processing of {len(new_message_ids_to_process)} new email IDs for user: {user_upn}.")
+    total_count = len(new_message_ids_to_process)
     processed_count = 0
+    processed_message_ids_in_run = set()
 
     def process_message(message_id):
-        processed_count +=1
-        print(f"Thread: {parent_thread.name} - Processing message ID {message_id} ({processed_count}/{total_count}) for user: {user_upn}")
+        nonlocal processed_count
+        if message_id in processed_message_ids_in_run:
+            print(f"Thread: {threading.current_thread().name} - Skipping already processed message ID '{message_id}' for user: {user_upn} in this run.")
+            return None
+
+        processed_count += 1
         current_thread = threading.current_thread()
-        print(f"Thread: {current_thread.name} - Processing message ID: {message_id} for user: {user_upn}")
+        print(f"Thread: {current_thread.name} - Processing new message ID {message_id} ({processed_count}/{total_count}) for user: {user_upn}")
         email = fetch_full_message(user_upn, message_id)
         if not email:
-            print(f"Thread: {current_thread.name} - Could not fetch full message for ID: {message_id} for user: {user_upn}")
+            print(f"Thread: {current_thread.name} - Could not fetch full message for new ID: {message_id} for user: {user_upn}")
             return None
 
         sender = email.get("from", {}).get("emailAddress", {}).get("address", "Unknown Sender")
         to_recipients_list = [r["emailAddress"]["address"].lower() for r in email.get("toRecipients", []) if "emailAddress" in r]
         if user_upn.lower() not in to_recipients_list and sender.lower() != user_upn.lower():
-            print(f"Thread: {current_thread.name} - Skipping message ID: {message_id} for user: {user_upn} (not to or from user)")
+            print(f"Thread: {current_thread.name} - Skipping new message ID: {message_id} for user: {user_upn} (not to or from user)")
             return None
 
         reply_to = ", ".join([r["emailAddress"]["address"] for r in email.get("replyTo", []) if "emailAddress" in r]) or sender
@@ -112,7 +140,8 @@ def extract_emails(user_upn):
                 print(f"Thread: {current_thread.name} - Error parsing timestamp '{ts}': {e}")
                 return "Invalid Timestamp"
 
-        print(f"Thread: {current_thread.name} - Extracted details for message ID: {message_id} for user: {user_upn}")
+        print(f"Thread: {current_thread.name} - Extracted details for new message ID: {message_id} for user: {user_upn}")
+        processed_message_ids_in_run.add(message_id)
         return {
             "email_id": message_id,
             "conversation_id": email.get("conversationId", "N/A"),
@@ -127,9 +156,9 @@ def extract_emails(user_upn):
             "date_extracted": datetime.utcnow().isoformat()
         }
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        results = executor.map(process_message, message_ids)
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        results = executor.map(process_message, new_message_ids_to_process)
 
     processed_emails = [email for email in results if email is not None]
-    print(f"Thread: {parent_thread.name} - Finished email extraction for user: {user_upn}. Found {len(processed_emails)} relevant emails.")
+    print(f"Thread: {parent_thread.name} - Finished processing {len(processed_emails)} new emails for user: {user_upn}.")
     return processed_emails

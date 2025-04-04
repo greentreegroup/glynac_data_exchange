@@ -43,19 +43,34 @@ def save_emails_to_json(user_upn, processed_users_set):
 
     try:
         print(f"Thread: {current_thread_name} - Starting processing for user: {user_upn}")
-        emails = extract_emails(user_upn)
+        new_emails = extract_emails(user_upn)
 
-        if not emails:
-            print(f"Thread: {current_thread_name} - No emails found for user: {user_upn}.")
+        if not new_emails:
+            print(f"Thread: {current_thread_name} - No new emails found for user: {user_upn}.")
             processed_users_set.add(user_upn)
             save_processed_users(processed_users_set)
             return
 
         file_path = os.path.join("email_json", f"emails_{user_upn.replace('@', '_at_')}.json")
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(emails, f, indent=2)
+        existing_emails = []
 
-        print(f"Thread: {current_thread_name} - Saved {len(emails)} emails for user: {user_upn} to {file_path}")
+        # Load existing emails if the file exists
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                try:
+                    existing_emails = json.load(f)
+                except json.JSONDecodeError:
+                    print(f"Thread: {current_thread_name} - Error decoding existing JSON for {user_upn}. Starting with an empty list.")
+                    existing_emails = []
+
+        # Append the newly extracted emails
+        updated_emails = existing_emails + new_emails
+
+        # Write the combined list back to the JSON file (this will overwrite, but with the appended data)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(updated_emails, f, indent=2)
+
+        print(f"Thread: {current_thread_name} - Saved {len(new_emails)} new emails for user: {user_upn} to {file_path}. Total emails now: {len(updated_emails)}")
         processed_users_set.add(user_upn)
         save_processed_users(processed_users_set)
 
