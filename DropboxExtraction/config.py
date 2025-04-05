@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 
-load_dotenv(override=True)
+load_dotenv()
 
 # Dropbox API credentials
 DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
