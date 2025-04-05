@@ -1,22 +1,23 @@
-from extract_dropbox import list_dropbox_folder
-from store_dropbox import insert_dropbox_files
+from extract_dropbox import get_activity_log
+from store_dropbox import insert_team_events
+import json
 
 def main():
-    files = list_dropbox_folder("")
+    events = get_activity_log()
 
-    if not files:
-        print("No files found in Dropbox.")
+    if not events:
+        print("No team events found.")
         return
 
-    print(f"Retrieved {len(files)} files from Dropbox.")
-
-    for file_data in files:
-        try:
-            insert_dropbox_files(file_data)
-        except Exception as e:
-            print(f"Failed to insert file: {file_data.get('name', 'Unknown')} - Error: {e}")
-
-    print("Dropbox extraction completed.")
+    output_file = "exported_dropbox_team_events.json"
+    try:
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(events, f, indent=2)
+        print(f"Exported {len(events)} events to {output_file}")
+    except Exception as e:
+        print(f"Failed to write to JSON file: {e}")
+    
+    # insert_team_events(events)
 
 if __name__ == "__main__":
     main()

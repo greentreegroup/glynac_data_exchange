@@ -1,6 +1,6 @@
 import requests
-import json
 from auth_dropbox import get_access_token
+import uuid
 
 DROPBOX_LOG_EVENTS_URL = "https://api.dropboxapi.com/2/team_log/get_events"
 DROPBOX_LOG_EVENTS_CONTINUE_URL = "https://api.dropboxapi.com/2/team_log/get_events/continue"
@@ -11,6 +11,7 @@ RELEVANT_EVENT_TYPES = {
 }
 
 def get_activity_log():
+    """Fetch and return Dropbox team file/folder activity events."""
     token = get_access_token()
     headers = {
         "Authorization": f"Bearer {token}",
@@ -43,12 +44,12 @@ def get_activity_log():
                 actor = event.get("actor", {}).get("admin") or event.get("actor", {}).get("user") or {}
 
                 team_activity.append({
+                    "event_id": str(uuid.uuid4()),
                     "timestamp": event.get("timestamp"),
                     "event_type": event_type,
                     "asset_type": asset.get(".tag"),
                     "name": asset.get("display_name"),
                     "path": asset.get("path", {}).get("contextual"),
-                    "id": asset.get("file_id") or asset.get("folder_id"),
                     "actor_name": actor.get("display_name"),
                     "actor_email": actor.get("email")
                 })
@@ -60,10 +61,8 @@ def get_activity_log():
         else:
             break
 
-    with open("team_activity_log.json", "w", encoding="utf-8") as f:
-        json.dump(team_activity, f, indent=2)
-
-    print(f"Saved {len(team_activity)} file/folder events to team_activity_log.json")
+    print(f"Fetched {len(team_activity)} relevant Dropbox team activity events.")
+    return team_activity
 
 if __name__ == "__main__":
     get_activity_log()
