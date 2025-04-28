@@ -169,3 +169,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+/~$Final_Data_with_Stats.xlsx
+/file_structure.txt
